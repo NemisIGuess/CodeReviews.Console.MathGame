@@ -1,6 +1,4 @@
-﻿
-
-using System.Diagnostics;
+﻿using System.Diagnostics;
 
 Console.Title = "MathGame";
 var menuOptions = new Dictionary<int, string>
@@ -18,13 +16,10 @@ var menuOptions = new Dictionary<int, string>
         4, "Division"
     },
     {
-        5, "Random"
+        5, "Game History"
     },
     {
-        6, "Game History"
-    },
-    {
-        7, "Exit"
+        6, "Exit"
     }
 };
 
@@ -42,41 +37,53 @@ var difficulties = new Dictionary<int, string>
 };
 
 var gamesHistoryData = new List<PlayedGame>();
+const int questionsCount = 10;
 
 Console.WriteLine("Welcome to MathGame!");
-var (game, difficulty) = GameChoiceMenu();
-InitializeGame(difficulty, game);
+MainMenu();
 
 return;
 
-(string Game, int Difficulty ) GameChoiceMenu()
+void MainMenu()
 {
-    (string Game, int Difficulty) userChoice;
-    
     Console.WriteLine("What would you like to play?");
     WriteOptionsDictionary(menuOptions);
     var userSelection = GetUserInput();
     LoopWhileWrongInput(menuOptions, ref userSelection);
+
+    if (menuOptions[userSelection] == "Game History")
+    {
+        Console.Clear();
+        Console.WriteLine($"Played {gamesHistoryData.Count} games in total.");
+        foreach (var gameHistoryData in gamesHistoryData)
+        {
+            Console.WriteLine(
+                $"Played a game of {gameHistoryData.Type} that ended in {gameHistoryData.TimeInSeconds} seconds with {gameHistoryData.ScorePercentage}% question answered correctly.");
+        }
+
+        MainMenu();
+    }
 
     if (menuOptions[userSelection] == "Exit")
     {
         Console.WriteLine("Bye!");
         ExitConsole();
     }
-    
-    userChoice.Game = menuOptions[userSelection];
-    
+
+    var selectedGame = menuOptions[userSelection];
+
     LineBreak();
-    
-    Console.WriteLine($"Playing a game of {userChoice.Game}");
+
     Console.WriteLine("What difficulty would you like to play?");
     WriteOptionsDictionary(difficulties);
     var chosenDifficulty = GetUserInput();
     LoopWhileWrongInput(difficulties, ref chosenDifficulty);
-    
-    userChoice.Difficulty = chosenDifficulty;
-    
-    return userChoice;
+    var selectedDifficulty = chosenDifficulty;
+
+    LineBreak();
+    Console.WriteLine($"Playing a game of {selectedGame} in {difficulties[chosenDifficulty]}");
+
+    InitializeGame(selectedDifficulty, selectedGame);
 }
 
 void WriteOptionsDictionary(Dictionary<int, string> dictionary)
@@ -85,6 +92,7 @@ void WriteOptionsDictionary(Dictionary<int, string> dictionary)
     {
         Console.WriteLine($"\t{keyValuePair.Key} - {keyValuePair.Value}");
     }
+
     Console.WriteLine("Press the corresponding key to continue...");
 }
 
@@ -119,90 +127,89 @@ void InitializeGame(int chosenDifficulty, string gameType)
     switch (gameType)
     {
         case "Addition":
-            AdditionGame(upperLimit);
+            PlayMathGame(upperLimit, gameType, (a, b) => a + b);
             break;
         case "Subtraction":
-            SubtractionGame(upperLimit);
+            PlayMathGame(upperLimit, gameType, (a, b) => a - b);
             break;
         case "Multiplication":
-            MultiplicationGame(upperLimit);
+            PlayMathGame(upperLimit, gameType, (a, b) => a * b);
             break;
         case "Division":
-            DivisionGame(upperLimit);
-            break;
-        case "Random":
-            RandomGame(upperLimit);
+            PlayMathGame(upperLimit, gameType, (a, b) => a / b);
             break;
     }
-        
 }
 
-void AdditionGame(int upperLimit)
+void PlayMathGame(
+    int upperLimit,
+    string operationName,
+    Func<int, int, int> operation)
 {
     var firstNumber = GetRandomNumber(upperLimit);
     var secondNumber = GetRandomNumber(upperLimit);
-    int count = 0;
 
+    if (operationName == "Division")
+        ValidateDivisionNumber(upperLimit, ref firstNumber, ref secondNumber);
+
+    var count = 0;
     var timer = new Stopwatch();
-    for (var i = 0; i < 5; i++)
+    timer.Start();
+
+    for (var i = 0; i < questionsCount; i++)
     {
         LineBreak();
-        Console.WriteLine($"How much is {firstNumber} + {secondNumber}?");
+        Console.WriteLine($"How much is {firstNumber} {GetOperatorSymbol(operationName)} {secondNumber}?");
         int.TryParse(Console.ReadLine(), out var userInput);
-        
-        if (userInput == firstNumber +  secondNumber)
+
+        if (userInput == operation(firstNumber, secondNumber))
         {
             count++;
         }
+
         firstNumber = GetRandomNumber(upperLimit);
         secondNumber = GetRandomNumber(upperLimit);
+
+        if (operationName == "Division")
+            ValidateDivisionNumber(upperLimit, ref firstNumber, ref secondNumber);
     }
 
-    var data = new PlayedGame
+    timer.Stop();
+
+    var gameData = new PlayedGame
     {
-        Type = "Addition",
-        ScorePercentage = (count / 10) * 100, // esto esta mal
-        Time = TimeSpan.Parse(timer.ElapsedMilliseconds.ToString()), // esto tambien
+        Type = operationName,
+        ScorePercentage = (int)(count / (double)questionsCount * 100),
+        TimeInSeconds = (int)timer.Elapsed.TotalSeconds,
     };
 
-    Console.WriteLine($"Game finished in {data.Time.ToString()}, {data.ScorePercentage}"); // esto no mostrarlo aqui
-    gamesHistoryData.Add(data);
-
+    gamesHistoryData.Add(gameData);
+    MainMenu();
 }
 
-void SubtractionGame(int upperLimit)
+string GetOperatorSymbol(string operationName)
 {
-    
-}
-
-void MultiplicationGame(int upperLimit)
-{
-    
-}
-
-void DivisionGame(int upperLimit)
-{
-    
-}
-
-void RandomGame(int upperLimit)
-{
-    var random = new Random();
-    var randomChoice = random.Next(4);
-    switch (randomChoice)
+    switch (operationName)
     {
-        case 0:
-            AdditionGame(upperLimit);
-            break;
-        case 1:
-            SubtractionGame(upperLimit);
-            break;
-        case 2:
-            MultiplicationGame(upperLimit);
-            break;
-        case 3:
-            DivisionGame(upperLimit);
-            break;
+        case "Addition":
+            return "+";
+        case "Subtraction":
+            return "-";
+        case "Multiplication":
+            return "*";
+        case "Division":
+            return "/";
+        default:
+            return "";
+    }
+}
+
+void ValidateDivisionNumber(int upperLimit, ref int dividend, ref int divisor)
+{
+    while (divisor == 0 || dividend % divisor != 0)
+    {
+        dividend = GetRandomNumber(upperLimit);
+        divisor = GetRandomNumber(upperLimit);
     }
 }
 
@@ -212,13 +219,9 @@ int GetRandomNumber(int upperLimit)
     return random.Next(1, upperLimit);
 }
 
-
-
-
-
-public class PlayedGame
+internal class PlayedGame
 {
-    public string Type { get; set; } = string.Empty;
-    public int ScorePercentage { get; set; }
-    public TimeSpan Time { get; set; }
+    public string Type { get; init; } = string.Empty;
+    public int ScorePercentage { get; init; }
+    public int TimeInSeconds { get; init; }
 }
